@@ -311,7 +311,14 @@ function BeforeAfterSlider() {
         {/* Content is also full-width but starts rendering from left:0 within its own space */}
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${pct}%`, right: 0, background: "#09090b", zIndex: 2, overflow: "hidden" }}>
           {/* This inner div has full panel width and starts at left edge of the after panel */}
-          <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: `${(100 / (100 - pct)) * 100}%`, right: "auto", left: 0, minWidth: "100%" }}>
+          <div style={{ 
+  position: "absolute", 
+  top: 0, 
+  bottom: 0, 
+  width: `${(100 / (100 - pct)) * 100}%`, 
+  left: 0,           // Keep this to anchor content to the left
+  minWidth: "100%" 
+}}>
             <div style={{ background: "#0a1a10", padding: "10px 16px", borderBottom: "1px solid #154a28", display: "flex", alignItems: "center", gap: "8px", height: "41px", boxSizing: "border-box" }}>
               <span style={{ fontSize: "10px", background: "#4ade801a", color: "#4ade80", border: "1px solid #4ade8030", padding: "2px 8px", borderRadius: "4px", letterSpacing: "0.06em", fontFamily: "monospace", whiteSpace: "nowrap" }}>AFTER</span>
               <span style={{ fontSize: "11px", color: "#52525b", fontFamily: "monospace", whiteSpace: "nowrap" }}>README.md</span>
