@@ -1,0 +1,26 @@
+import { Resend } from 'resend';
+import { NextRequest, NextResponse } from 'next/server';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function POST(req: NextRequest) {
+  try {
+    const { email } = await req.json();
+
+    if (!email || !email.includes('@')) {
+      return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
+    }
+
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
+      to: 'pw420064@gmail.com',
+      subject: 'New DocDrift waitlist signup',
+      html: `<p><strong>${email}</strong> just joined the DocDrift waitlist.</p>`
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+  }
+}
