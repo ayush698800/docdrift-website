@@ -1,97 +1,104 @@
 "use client";
-import { motion } from "framer-motion";
-import { Github, Terminal, Zap, Shield, GitBranch, Code2, FileText, Star } from "lucide-react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { Github, ArrowRight, Check, Terminal, Zap, Shield, GitBranch, Code2, FileText, Star, Copy, ChevronRight } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
-};
-
-const stagger = {
-  visible: { transition: { staggerChildren: 0.1 } }
-};
-
 const terminalLines = [
-  { text: "$ git add .", color: "#fff", delay: 0 },
-  { text: "$ docdrift commit", color: "#fff", delay: 800 },
-  { text: "", color: "", delay: 1400 },
-  { text: "DocDrift scanning before commit...", color: "#00ff88", delay: 1800 },
-  { text: "", color: "", delay: 2200 },
-  { text: "Found 1 errors · 0 warnings · 2 undocumented", color: "#ff6b6b", delay: 2600 },
-  { text: "", color: "", delay: 3000 },
-  { text: "ERROR validate_token", color: "#ff6b6b", delay: 3200 },
-  { text: "  README.md line 7", color: "#555", delay: 3600 },
-  { text: "  Docs say returns True/False but raises exception", color: "#888", delay: 4000 },
-  { text: "", color: "", delay: 4400 },
-  { text: "Fix this? (y/n): y", color: "#00ff88", delay: 4600 },
-  { text: "Generating fix...", color: "#555", delay: 5200 },
-  { text: "✔ Fixed — README.md updated", color: "#00ff88", delay: 6800 },
-  { text: "", color: "", delay: 7200 },
-  { text: "Auto-document all? (y/n): y", color: "#00ff88", delay: 7400 },
-  { text: "✔ Added 2 new sections to README", color: "#00ff88", delay: 8400 },
-  { text: "", color: "", delay: 8800 },
-  { text: "Commit now? (y/n): y", color: "#00ff88", delay: 9000 },
-  { text: "✔ Committed — refactor auth flow", color: "#00ff88", delay: 9800 },
+  { text: "$ git add .", color: "#e4e4e7", delay: 0 },
+  { text: "$ docdrift commit", color: "#e4e4e7", delay: 700 },
+  { text: "", delay: 1200 },
+  { text: "◆ scanning changed symbols...", color: "#52525b", delay: 1500 },
+  { text: "", delay: 1900 },
+  { text: "  validate_token  →  README.md:7", color: "#a1a1aa", delay: 2100 },
+  { text: "  AuthService.login  →  README.md:15", color: "#a1a1aa", delay: 2400 },
+  { text: "", delay: 2700 },
+  { text: "◆ running LLM consistency check...", color: "#52525b", delay: 2900 },
+  { text: "", delay: 3600 },
+  { text: "  ✗ ERROR  validate_token", color: "#f87171", delay: 3800 },
+  { text: "    docs say returns bool — now raises exception", color: "#71717a", delay: 4100 },
+  { text: "", delay: 4400 },
+  { text: "  Fix this? [y/n] › y", color: "#e4e4e7", delay: 4600 },
+  { text: "", delay: 5200 },
+  { text: "  ◆ generating fix...", color: "#52525b", delay: 5400 },
+  { text: "  ✓ README.md updated", color: "#4ade80", delay: 7100 },
+  { text: "", delay: 7400 },
+  { text: "  2 undocumented symbols found", color: "#a1a1aa", delay: 7600 },
+  { text: "  Auto-document all? [y/n] › y", color: "#e4e4e7", delay: 7900 },
+  { text: "  ✓ added 2 sections to README", color: "#4ade80", delay: 9200 },
+  { text: "", delay: 9500 },
+  { text: "  Commit message › refactor auth flow", color: "#e4e4e7", delay: 9700 },
+  { text: "  ✓ committed", color: "#4ade80", delay: 10400 },
 ];
 
-function AnimatedTerminal() {
-  const [visibleLines, setVisibleLines] = useState<number[]>([]);
-  const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+function useTypewriter(started: boolean) {
+  const [visible, setVisible] = useState<number[]>([]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting && !started) setStarted(true); },
-      { threshold: 0.3 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [started]);
-
-  useEffect(() => {
-    if (!started) return;
-    terminalLines.forEach((line, i) => {
-      setTimeout(() => {
-        setVisibleLines(prev => [...prev, i]);
-      }, line.delay);
+    if (!started) { setVisible([]); return; }
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    terminalLines.forEach((_, i) => {
+      timers.push(setTimeout(() => setVisible(p => [...p, i]), terminalLines[i].delay));
     });
+    return () => timers.forEach(clearTimeout);
   }, [started]);
 
-  const replay = () => {
-    setVisibleLines([]);
-    setStarted(false);
-    setTimeout(() => setStarted(true), 200);
-  };
+  return visible;
+}
+
+function TerminalDemo() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [started, setStarted] = useState(false);
+  const [key, setKey] = useState(0);
+  const visible = useTypewriter(started);
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setStarted(true); }, { threshold: 0.2 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const replay = () => { setStarted(false); setKey(k => k + 1); setTimeout(() => setStarted(true), 100); };
 
   return (
-    <div ref={ref} style={{ background: "#111", border: "1px solid #222", borderRadius: "12px", overflow: "hidden" }}>
-      <div style={{ background: "#1a1a1a", padding: "12px 16px", display: "flex", alignItems: "center", gap: "8px", borderBottom: "1px solid #222" }}>
-        <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#ff5f57" }} />
-        <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#ffbd2e" }} />
-        <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#28c840" }} />
-        <span style={{ color: "#555", fontSize: "12px", marginLeft: "8px", fontFamily: "var(--font-mono)" }}>terminal</span>
-        <button type="button" onClick={replay}
-          style={{ marginLeft: "auto", background: "none", border: "1px solid #333", color: "#555", fontSize: "11px", padding: "2px 8px", borderRadius: "4px", cursor: "pointer" }}>
-          replay
-        </button>
+    <div ref={ref} key={key} style={{ fontFamily: "'JetBrains Mono', 'Fira Code', monospace", background: "#09090b", border: "1px solid #27272a", borderRadius: "12px", overflow: "hidden" }}>
+      <div style={{ background: "#18181b", padding: "10px 16px", display: "flex", alignItems: "center", gap: "6px", borderBottom: "1px solid #27272a" }}>
+        <div style={{ width: "11px", height: "11px", borderRadius: "50%", background: "#3f3f46" }} />
+        <div style={{ width: "11px", height: "11px", borderRadius: "50%", background: "#3f3f46" }} />
+        <div style={{ width: "11px", height: "11px", borderRadius: "50%", background: "#3f3f46" }} />
+        <span style={{ marginLeft: "10px", fontSize: "11px", color: "#52525b", letterSpacing: "0.05em" }}>docdrift — bash</span>
+        <button onClick={replay} type="button" style={{ marginLeft: "auto", fontSize: "10px", color: "#52525b", background: "none", border: "1px solid #27272a", padding: "2px 8px", borderRadius: "4px", cursor: "pointer", letterSpacing: "0.05em" }}>replay ↺</button>
       </div>
-      <div style={{ padding: "24px", fontFamily: "var(--font-mono)", fontSize: "13px", lineHeight: 2, minHeight: "400px" }}>
-        {terminalLines.map((line, i) => (
-          visibleLines.includes(i) ? (
-            <motion.p key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2 }} style={{ color: line.color || "transparent", minHeight: "1.5em" }}>
-              {line.text}
-            </motion.p>
+      <div style={{ padding: "20px 24px", minHeight: "380px", lineHeight: "1.9", fontSize: "12.5px" }}>
+        {terminalLines.map((line, i) =>
+          visible.includes(i) ? (
+            <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}
+              style={{ color: line.color || "transparent", minHeight: "1em", whiteSpace: "pre" }}>
+              {line.text || " "}
+            </motion.div>
           ) : null
-        ))}
-        {started && visibleLines.length < terminalLines.length && (
-          <motion.span animate={{ opacity: [1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }}
-            style={{ color: "#00ff88" }}>▋</motion.span>
+        )}
+        {started && visible.length < terminalLines.length && (
+          <motion.span animate={{ opacity: [1, 0, 1] }} transition={{ repeat: Infinity, duration: 1 }}
+            style={{ color: "#4ade80", fontSize: "13px" }}>█</motion.span>
         )}
       </div>
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button type="button" onClick={copy} style={{ background: "none", border: "none", cursor: "pointer", color: copied ? "#4ade80" : "#52525b", display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", letterSpacing: "0.05em", transition: "color 0.2s" }}>
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+      {copied ? "copied" : "copy"}
+    </button>
   );
 }
 
@@ -99,263 +106,252 @@ function WaitlistForm() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
-    if (!email || !email.includes("@")) {
-      setError("Please enter a valid email");
-      return;
-    }
-    setError("");
+    if (!email.includes("@")) return;
     setLoading(true);
-
     try {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
       );
-
-      const { error: supabaseError } = await supabase
-        .from('waitlist')
-        .insert({ email });
-
-      if (supabaseError) {
-        console.error('Supabase error:', supabaseError);
-      }
-
-      await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-
+      await supabase.from("waitlist").insert({ email });
+      await fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
       setSubmitted(true);
     } catch (e) {
-      console.error('Submit error:', e);
+      console.error(e);
       setSubmitted(true);
     }
-
     setLoading(false);
   };
 
-  if (submitted) {
-    return (
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-        style={{ textAlign: "center", padding: "1rem", color: "#00ff88", fontSize: "14px" }}>
-        ✔ You are on the waitlist — we will reach out soon
-      </motion.div>
-    );
-  }
+  if (submitted) return (
+    <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+      style={{ color: "#4ade80", fontSize: "13px", textAlign: "center", fontFamily: "monospace" }}>
+      ✓ you are on the list
+    </motion.p>
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-        <input
-          type="email"
-          placeholder="your@email.com"
-          value={email}
-          onChange={e => { setEmail(e.target.value); setError(""); }}
-          onKeyDown={e => e.key === "Enter" && handleSubmit()}
-          style={{
-            background: "#1a1a1a", border: `1px solid ${error ? "#ff6b6b" : "#333"}`,
-            borderRadius: "8px", padding: "10px 16px", color: "#fff",
-            fontSize: "14px", outline: "none", width: "220px"
-          }}
-        />
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={loading}
-          style={{
-            background: loading ? "#00ff8866" : "#00ff88",
-            color: "#0a0a0a", border: "none", borderRadius: "8px",
-            padding: "10px 20px", fontSize: "14px", fontWeight: 600,
-            cursor: loading ? "not-allowed" : "pointer"
-          }}>
-          {loading ? "Joining..." : "Join waitlist"}
-        </button>
-      </div>
-      {error && <p style={{ color: "#ff6b6b", fontSize: "12px", textAlign: "center", margin: 0 }}>{error}</p>}
+    <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+      <input type="email" placeholder="your@email.com" value={email}
+        onChange={e => setEmail(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && handleSubmit()}
+        style={{ flex: 1, background: "#18181b", border: "1px solid #27272a", borderRadius: "8px", padding: "9px 14px", color: "#e4e4e7", fontSize: "13px", outline: "none", fontFamily: "inherit" }} />
+      <button type="button" onClick={handleSubmit} disabled={loading}
+        style={{ background: "#4ade80", color: "#09090b", border: "none", borderRadius: "8px", padding: "9px 18px", fontSize: "13px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+        {loading ? "..." : "join waitlist"}
+      </button>
     </div>
   );
 }
 
 function GitHubStars() {
   const [stars, setStars] = useState<number | null>(null);
-
   useEffect(() => {
     fetch("https://api.github.com/repos/ayush698800/docwatcher")
-      .then(r => r.json())
-      .then(d => setStars(d.stargazers_count))
-      .catch(() => setStars(null));
+      .then(r => r.json()).then(d => setStars(d.stargazers_count)).catch(() => { });
   }, []);
-
-  if (stars === null) return null;
-
+  if (!stars && stars !== 0) return null;
   return (
     <a href="https://github.com/ayush698800/docwatcher" target="_blank"
-      style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1a1a1a", border: "1px solid #333", borderRadius: "6px", padding: "4px 10px", textDecoration: "none", color: "#ccc", fontSize: "12px" }}>
-      <Star size={12} style={{ color: "#ffbd2e" }} />
-      {stars} stars
+      style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "12px", color: "#71717a", textDecoration: "none", border: "1px solid #27272a", padding: "4px 10px", borderRadius: "6px", background: "#18181b" }}>
+      <Star size={11} style={{ color: "#eab308" }} fill="#eab308" />
+      {stars}
     </a>
   );
 }
 
+const features = [
+  { icon: <Zap size={16} />, title: "auto-fix stale docs", desc: "AI rewrites the exact section that is now wrong. One keypress applies it." },
+  { icon: <FileText size={16} />, title: "auto-document new code", desc: "New functions with no docs get documented automatically before commit." },
+  { icon: <Terminal size={16} />, title: "docdrift commit", desc: "One command — scan, fix undocumented symbols, commit. Everything." },
+  { icon: <GitBranch size={16} />, title: "github actions", desc: "Drop in two lines of YAML. Every PR gets checked automatically." },
+  { icon: <Shield size={16} />, title: "fully local", desc: "LM Studio or Ollama. Your code never leaves your machine." },
+  { icon: <Code2 size={16} />, title: "pre-commit hook", desc: "Blocks commits with critical doc errors before they hit the repo." },
+];
+
+const steps = [
+  { n: "01", t: "change code", d: "Edit any function, class, or config" },
+  { n: "02", t: "DocDrift detects it", d: "Tree-sitter parses the exact diff" },
+  { n: "03", t: "semantic search", d: "Finds every doc section about that symbol" },
+  { n: "04", t: "LLM verdict", d: "Is this documentation still accurate?" },
+  { n: "05", t: "fix generated", d: "AI writes the corrected documentation" },
+  { n: "06", t: "you approve", d: "One keypress. README updated. Done." },
+];
+
 export default function Home() {
   return (
-    <main style={{ fontFamily: "var(--font-inter)" }}>
+    <main style={{ background: "#09090b", color: "#e4e4e7", minHeight: "100vh", fontFamily: "'DM Sans', 'Inter', sans-serif", overflowX: "hidden" }}>
 
-      <nav style={{
-        position: "fixed", top: 0, width: "100%", zIndex: 100,
-        background: "rgba(10,10,10,0.9)", backdropFilter: "blur(12px)",
-        borderBottom: "1px solid #1a1a1a", padding: "0 2rem",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        height: "60px"
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ color: "#00ff88", fontSize: "20px", fontWeight: 700 }}>DocDrift</span>
-          <span style={{ background: "#00ff8822", color: "#00ff88", fontSize: "11px", padding: "2px 8px", borderRadius: "20px", border: "1px solid #00ff8844" }}>v2.0.0</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <GitHubStars />
-          <a href="https://github.com/ayush698800/docwatcher" target="_blank"
-            style={{ color: "#888", textDecoration: "none", fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
-            <Github size={16} /> GitHub
-          </a>
-          <a href="https://pypi.org/project/docdrift/" target="_blank"
-            style={{ background: "#00ff88", color: "#0a0a0a", padding: "6px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: 600 }}>
-            pip install docdrift
-          </a>
+      {/* grid bg */}
+      <div style={{ position: "fixed", inset: 0, backgroundImage: "linear-gradient(#18181b 1px, transparent 1px), linear-gradient(90deg, #18181b 1px, transparent 1px)", backgroundSize: "40px 40px", opacity: 0.4, pointerEvents: "none", zIndex: 0 }} />
+
+      {/* glow */}
+      <div style={{ position: "fixed", top: "-200px", left: "50%", transform: "translateX(-50%)", width: "600px", height: "600px", background: "radial-gradient(circle, #4ade8012 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+
+      {/* NAV */}
+      <nav style={{ position: "fixed", top: 0, width: "100%", zIndex: 50, borderBottom: "1px solid #18181b", backdropFilter: "blur(16px)", background: "rgba(9,9,11,0.85)" }}>
+        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px", height: "56px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontWeight: 800, fontSize: "17px", letterSpacing: "-0.02em" }}>DocDrift</span>
+            <span style={{ fontSize: "10px", color: "#4ade80", border: "1px solid #4ade8030", background: "#4ade8008", padding: "2px 7px", borderRadius: "4px", letterSpacing: "0.08em", fontFamily: "monospace" }}>v2.0.0</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <GitHubStars />
+            <a href="https://github.com/ayush698800/docwatcher" target="_blank"
+              style={{ color: "#71717a", textDecoration: "none", fontSize: "13px", display: "flex", alignItems: "center", gap: "5px" }}>
+              <Github size={14} /> GitHub
+            </a>
+            <a href="https://pypi.org/project/docdrift/" target="_blank"
+              style={{ background: "#4ade80", color: "#09090b", padding: "6px 14px", borderRadius: "7px", textDecoration: "none", fontSize: "12px", fontWeight: 700, letterSpacing: "0.02em" }}>
+              pip install
+            </a>
+          </div>
         </div>
       </nav>
 
-      <section style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", textAlign: "center", padding: "80px 2rem 4rem", position: "relative" }}>
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, #00ff8811 0%, transparent 60%)", pointerEvents: "none" }} />
-        <motion.div initial="hidden" animate="visible" variants={stagger}>
-          <motion.div variants={fadeUp} style={{ marginBottom: "24px" }}>
-            <span style={{ background: "#00ff8815", color: "#00ff88", border: "1px solid #00ff8830", padding: "6px 16px", borderRadius: "20px", fontSize: "13px" }}>
-              Now on PyPI — pip install docdrift
+      {/* HERO */}
+      <section style={{ position: "relative", zIndex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 24px 60px", textAlign: "center" }}>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+          style={{ marginBottom: "28px" }}>
+          <span style={{ fontSize: "11px", letterSpacing: "0.15em", color: "#52525b", textTransform: "uppercase", border: "1px solid #27272a", padding: "5px 14px", borderRadius: "4px", fontFamily: "monospace" }}>
+            now available on pypi
+          </span>
+        </motion.div>
+
+        <motion.h1 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}
+          style={{ fontSize: "clamp(2.8rem, 7vw, 5.5rem)", fontWeight: 900, lineHeight: 1.05, letterSpacing: "-0.03em", marginBottom: "20px", maxWidth: "800px" }}>
+          your docs are lying.
+          <br />
+          <span style={{ color: "#4ade80" }}>docdrift fixes them.</span>
+        </motion.h1>
+
+        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
+          style={{ fontSize: "clamp(1rem, 2vw, 1.15rem)", color: "#71717a", maxWidth: "520px", lineHeight: 1.7, marginBottom: "40px" }}>
+          watches your git commits, finds documentation that is now wrong,
+          and fixes it automatically using AI — before you merge.
+        </motion.p>
+
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}
+          style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", marginBottom: "24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#18181b", border: "1px solid #27272a", borderRadius: "8px", padding: "10px 16px", fontFamily: "monospace", fontSize: "13px" }}>
+            <span style={{ color: "#4ade80" }}>$</span>
+            <span>pip install docdrift</span>
+            <CopyButton text="pip install docdrift" />
+          </div>
+          <a href="https://github.com/ayush698800/docwatcher" target="_blank"
+            style={{ display: "flex", alignItems: "center", gap: "7px", border: "1px solid #27272a", borderRadius: "8px", padding: "10px 18px", textDecoration: "none", color: "#a1a1aa", fontSize: "13px", background: "#18181b" }}>
+            <Github size={14} /> view on github <ArrowRight size={12} />
+          </a>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+          style={{ display: "flex", gap: "20px", color: "#3f3f46", fontSize: "12px", letterSpacing: "0.04em", flexWrap: "wrap", justifyContent: "center" }}>
+          {["free & open source", "local AI — fully private", "github actions ready"].map(t => (
+            <span key={t} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <Check size={10} style={{ color: "#4ade80" }} /> {t}
             </span>
-          </motion.div>
-          <motion.h1 variants={fadeUp} style={{ fontSize: "clamp(2.5rem, 6vw, 5rem)", fontWeight: 800, lineHeight: 1.1, marginBottom: "24px", letterSpacing: "-0.02em" }}>
-            Your docs are lying.<br />
-            <span style={{ color: "#00ff88" }}>DocDrift fixes them.</span>
-          </motion.h1>
-          <motion.p variants={fadeUp} style={{ fontSize: "clamp(1rem, 2vw, 1.25rem)", color: "#888", maxWidth: "600px", margin: "0 auto 40px", lineHeight: 1.6 }}>
-            DocDrift watches your git commits, finds documentation that is now wrong,
-            and fixes it automatically using AI — before you merge.
-          </motion.p>
-          <motion.div variants={fadeUp} style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap", marginBottom: "20px" }}>
-            <div style={{ background: "#111", border: "1px solid #222", borderRadius: "8px", padding: "12px 20px", fontFamily: "var(--font-mono)", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ color: "#00ff88" }}>$</span>
-              <span>pip install docdrift</span>
-              <button type="button" onClick={() => navigator.clipboard.writeText("pip install docdrift")}
-                style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "12px" }}>copy</button>
-            </div>
-            <a href="https://github.com/ayush698800/docwatcher" target="_blank"
-              style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #333", borderRadius: "8px", padding: "12px 20px", textDecoration: "none", color: "#fff", fontSize: "14px" }}>
-              <Github size={16} /> View on GitHub
-            </a>
-          </motion.div>
-          <motion.div variants={fadeUp} style={{ display: "flex", gap: "24px", justifyContent: "center", color: "#555", fontSize: "13px", flexWrap: "wrap" }}>
-            <span>✓ Free and open source</span>
-            <span>✓ Works locally — no data sent</span>
-            <span>✓ GitHub Actions ready</span>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      <section style={{ padding: "2rem 2rem 6rem", maxWidth: "900px", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}
-          style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "8px" }}>See it in action</h2>
-          <p style={{ color: "#555", fontSize: "14px" }}>Scroll down and watch the magic happen</p>
-        </motion.div>
-        <AnimatedTerminal />
-      </section>
-
-      <section style={{ padding: "3rem 2rem", borderTop: "1px solid #111", borderBottom: "1px solid #111", background: "#080808" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}
-          style={{ maxWidth: "900px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "2rem", textAlign: "center" }}>
-          {[
-            { number: "v2.0.0", label: "Latest version" },
-            { number: "Free", label: "Open source forever" },
-            { number: "3 AI", label: "Groq · Ollama · LM Studio" },
-            { number: "2 langs", label: "Python · JavaScript" },
-          ].map(s => (
-            <motion.div key={s.label} variants={fadeUp}>
-              <div style={{ fontSize: "2rem", fontWeight: 700, color: "#00ff88", marginBottom: "4px" }}>{s.number}</div>
-              <div style={{ fontSize: "13px", color: "#555" }}>{s.label}</div>
-            </motion.div>
           ))}
         </motion.div>
       </section>
 
-      <section style={{ padding: "6rem 2rem", maxWidth: "1000px", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.h2 variants={fadeUp} style={{ textAlign: "center", fontSize: "2rem", fontWeight: 700, marginBottom: "3rem" }}>
-            How it works
-          </motion.h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "2rem" }}>
-            {[
-              { step: "01", title: "You change code", desc: "Edit a function, class, or config in your project" },
-              { step: "02", title: "DocDrift detects it", desc: "Tree-sitter parses the diff and finds what changed" },
-              { step: "03", title: "Semantic search", desc: "Finds every doc section related to that change" },
-              { step: "04", title: "AI checks accuracy", desc: "LLM reads both code and docs — is this still true?" },
-              { step: "05", title: "Fix generated", desc: "AI writes updated documentation matching the code" },
-              { step: "06", title: "You approve", desc: "One keypress applies the fix before committing" },
-            ].map((item) => (
-              <motion.div key={item.step} variants={fadeUp}
-                style={{ background: "#111", border: "1px solid #1a1a1a", borderRadius: "12px", padding: "1.5rem" }}>
-                <div style={{ color: "#00ff88", fontFamily: "var(--font-mono)", fontSize: "12px", marginBottom: "8px" }}>{item.step}</div>
-                <h3 style={{ fontSize: "15px", fontWeight: 600, marginBottom: "8px" }}>{item.title}</h3>
-                <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.5 }}>{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
+      {/* TERMINAL */}
+      <section style={{ position: "relative", zIndex: 1, padding: "0 24px 80px", maxWidth: "820px", margin: "0 auto" }}>
+        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+          <p style={{ textAlign: "center", fontSize: "11px", letterSpacing: "0.12em", color: "#3f3f46", textTransform: "uppercase", marginBottom: "20px", fontFamily: "monospace" }}>
+            — watch it work —
+          </p>
+          <TerminalDemo />
         </motion.div>
       </section>
 
-      <section style={{ padding: "6rem 2rem", maxWidth: "1000px", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.h2 variants={fadeUp} style={{ textAlign: "center", fontSize: "2rem", fontWeight: 700, marginBottom: "3rem" }}>
-            Everything you need
-          </motion.h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-            {[
-              { icon: <Zap size={20} />, title: "Auto-fix stale docs", desc: "AI generates correct documentation and applies it with one keypress" },
-              { icon: <FileText size={20} />, title: "Auto-document new code", desc: "New functions with no docs get documented automatically" },
-              { icon: <Terminal size={20} />, title: "Interactive commit flow", desc: "docdrift commit — scan, fix, and commit in one command" },
-              { icon: <GitBranch size={20} />, title: "GitHub Actions", desc: "Automatic PR checks — every PR gets verified before merge" },
-              { icon: <Shield size={20} />, title: "Local AI support", desc: "Run fully private with LM Studio or Ollama — code never leaves your machine" },
-              { icon: <Code2 size={20} />, title: "Pre-commit hook", desc: "Blocks commits with critical doc errors before they reach the repo" },
-            ].map((f) => (
-              <motion.div key={f.title} variants={fadeUp}
-                style={{ background: "#111", border: "1px solid #1a1a1a", borderRadius: "12px", padding: "1.5rem", display: "flex", gap: "1rem" }}>
-                <div style={{ color: "#00ff88", flexShrink: 0, marginTop: "2px" }}>{f.icon}</div>
-                <div>
-                  <h3 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "6px" }}>{f.title}</h3>
-                  <p style={{ fontSize: "13px", color: "#666", lineHeight: 1.5 }}>{f.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+      {/* STATS */}
+      <section style={{ position: "relative", zIndex: 1, borderTop: "1px solid #18181b", borderBottom: "1px solid #18181b", padding: "40px 24px", background: "#0a0a0f" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "2rem", textAlign: "center" }}>
+          {[
+            { v: "v2.0.0", l: "stable release" },
+            { v: "free", l: "forever open source" },
+            { v: "3", l: "AI providers" },
+            { v: "2", l: "languages supported" },
+          ].map(s => (
+            <motion.div key={s.l} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+              <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#4ade80", letterSpacing: "-0.02em", fontFamily: "monospace" }}>{s.v}</div>
+              <div style={{ fontSize: "11px", color: "#52525b", marginTop: "4px", letterSpacing: "0.06em", textTransform: "uppercase" }}>{s.l}</div>
+            </motion.div>
+          ))}
+        </div>
       </section>
 
-      <section style={{ padding: "6rem 2rem", maxWidth: "900px", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.h2 variants={fadeUp} style={{ textAlign: "center", fontSize: "2rem", fontWeight: 700, marginBottom: "1rem" }}>
-            Add to any repo in 30 seconds
-          </motion.h2>
-          <motion.p variants={fadeUp} style={{ textAlign: "center", color: "#666", marginBottom: "2rem" }}>
-            Every PR gets automatically checked. Findings posted as comments.
-          </motion.p>
-          <motion.div variants={fadeUp} style={{ background: "#111", border: "1px solid #222", borderRadius: "12px", overflow: "hidden" }}>
-            <div style={{ background: "#1a1a1a", padding: "10px 16px", borderBottom: "1px solid #222" }}>
-              <span style={{ fontSize: "12px", color: "#555", fontFamily: "var(--font-mono)" }}>.github/workflows/docdrift.yml</span>
+      {/* HOW IT WORKS */}
+      <section style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: "1000px", margin: "0 auto" }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <p style={{ fontSize: "11px", letterSpacing: "0.15em", color: "#52525b", textTransform: "uppercase", fontFamily: "monospace", marginBottom: "12px" }}>process</p>
+          <h2 style={{ fontSize: "clamp(1.6rem, 3vw, 2.2rem)", fontWeight: 800, letterSpacing: "-0.02em", marginBottom: "48px" }}>how it works</h2>
+        </motion.div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1px", background: "#18181b", border: "1px solid #18181b", borderRadius: "12px", overflow: "hidden" }}>
+          {steps.map((s, i) => (
+            <motion.div key={s.n} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}
+              style={{ background: "#09090b", padding: "24px 20px" }}>
+              <div style={{ fontSize: "10px", color: "#3f3f46", fontFamily: "monospace", letterSpacing: "0.1em", marginBottom: "10px" }}>{s.n}</div>
+              <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: "6px", color: "#e4e4e7" }}>{s.t}</div>
+              <div style={{ fontSize: "12px", color: "#52525b", lineHeight: 1.5 }}>{s.d}</div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section style={{ position: "relative", zIndex: 1, padding: "0 24px 80px", maxWidth: "1000px", margin: "0 auto" }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <p style={{ fontSize: "11px", letterSpacing: "0.15em", color: "#52525b", textTransform: "uppercase", fontFamily: "monospace", marginBottom: "12px" }}>capabilities</p>
+          <h2 style={{ fontSize: "clamp(1.6rem, 3vw, 2.2rem)", fontWeight: 800, letterSpacing: "-0.02em", marginBottom: "48px" }}>everything you need</h2>
+        </motion.div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1px", background: "#18181b", border: "1px solid #18181b", borderRadius: "12px", overflow: "hidden" }}>
+          {features.map((f, i) => (
+            <motion.div key={f.title} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.06 }}
+              style={{ background: "#09090b", padding: "24px", display: "flex", gap: "14px" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#0f0f12")}
+              onMouseLeave={e => (e.currentTarget.style.background = "#09090b")}>
+              <div style={{ color: "#4ade80", flexShrink: 0, marginTop: "1px" }}>{f.icon}</div>
+              <div>
+                <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: "5px", color: "#e4e4e7", fontFamily: "monospace" }}>{f.title}</div>
+                <div style={{ fontSize: "12px", color: "#52525b", lineHeight: 1.6 }}>{f.desc}</div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* GITHUB ACTIONS */}
+      <section style={{ position: "relative", zIndex: 1, padding: "0 24px 80px", maxWidth: "860px", margin: "0 auto" }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <p style={{ fontSize: "11px", letterSpacing: "0.15em", color: "#52525b", textTransform: "uppercase", fontFamily: "monospace", marginBottom: "12px" }}>integration</p>
+          <h2 style={{ fontSize: "clamp(1.6rem, 3vw, 2.2rem)", fontWeight: 800, letterSpacing: "-0.02em", marginBottom: "8px" }}>add to any repo in 30 seconds</h2>
+          <p style={{ color: "#52525b", fontSize: "13px", marginBottom: "32px" }}>every PR gets checked automatically. findings posted as a comment.</p>
+          <div style={{ background: "#09090b", border: "1px solid #27272a", borderRadius: "12px", overflow: "hidden" }}>
+            <div style={{ background: "#18181b", padding: "10px 16px", borderBottom: "1px solid #27272a", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "11px", color: "#52525b", fontFamily: "monospace" }}>.github/workflows/docdrift.yml</span>
+              <CopyButton text={`name: DocDrift
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - name: DocDrift
+        uses: ayush698800/docwatcher@v2.0.0
+        with:
+          groq_api_key: \${{ secrets.GROQ_API_KEY }}`} />
             </div>
-            <pre style={{ padding: "24px", fontFamily: "var(--font-mono)", fontSize: "13px", lineHeight: 1.8, color: "#ccc", overflow: "auto", margin: 0 }}>
+            <pre style={{ padding: "24px", fontFamily: "monospace", fontSize: "12.5px", lineHeight: 1.9, color: "#a1a1aa", margin: 0, overflowX: "auto" }}>
 {`name: DocDrift
 on:
   pull_request:
@@ -375,85 +371,99 @@ jobs:
         with:
           groq_api_key: \${{ secrets.GROQ_API_KEY }}`}
             </pre>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      <section style={{ padding: "6rem 2rem", maxWidth: "800px", margin: "0 auto" }}>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.h2 variants={fadeUp} style={{ textAlign: "center", fontSize: "2rem", fontWeight: 700, marginBottom: "3rem" }}>
-            Simple pricing
-          </motion.h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem" }}>
-            <motion.div variants={fadeUp} style={{ background: "#111", border: "1px solid #222", borderRadius: "16px", padding: "2rem" }}>
-              <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "8px" }}>Open Source</h3>
-              <div style={{ fontSize: "3rem", fontWeight: 800, marginBottom: "8px" }}>Free</div>
-              <p style={{ color: "#666", fontSize: "13px", marginBottom: "1.5rem" }}>Forever. Self-hosted.</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "2rem" }}>
-                {["pip install docdrift", "Local AI — fully private", "Pre-commit hook", "GitHub Actions", "CLI tool"].map(f => (
-                  <div key={f} style={{ display: "flex", gap: "8px", fontSize: "13px", color: "#ccc" }}>
-                    <span style={{ color: "#00ff88" }}>✓</span> {f}
-                  </div>
-                ))}
-              </div>
-              <a href="https://github.com/ayush698800/docwatcher" target="_blank"
-                style={{ display: "block", textAlign: "center", border: "1px solid #333", borderRadius: "8px", padding: "10px", textDecoration: "none", color: "#fff", fontSize: "14px" }}>
-                Get started free
-              </a>
-            </motion.div>
-
-            <motion.div variants={fadeUp} style={{ background: "#111", border: "2px solid #00ff88", borderRadius: "16px", padding: "2rem", position: "relative" }}>
-              <div style={{ position: "absolute", top: "-12px", left: "50%", transform: "translateX(-50%)", background: "#00ff88", color: "#0a0a0a", fontSize: "11px", fontWeight: 700, padding: "4px 12px", borderRadius: "20px" }}>
-                COMING SOON
-              </div>
-              <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "8px" }}>Hosted</h3>
-              <div style={{ fontSize: "3rem", fontWeight: 800, marginBottom: "4px" }}>$7<span style={{ fontSize: "1rem", color: "#666" }}>/mo</span></div>
-              <p style={{ color: "#666", fontSize: "13px", marginBottom: "1.5rem" }}>Zero setup. Always on.</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "2rem" }}>
-                {["Everything in free", "Zero setup — connect GitHub", "Cloud AI included", "Dashboard", "PR notifications", "Email alerts"].map(f => (
-                  <div key={f} style={{ display: "flex", gap: "8px", fontSize: "13px", color: "#ccc" }}>
-                    <span style={{ color: "#00ff88" }}>✓</span> {f}
-                  </div>
-                ))}
-              </div>
-              <WaitlistForm />
-            </motion.div>
           </div>
         </motion.div>
       </section>
 
-      <section style={{ padding: "6rem 2rem", textAlign: "center", position: "relative" }}>
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, #00ff8808 0%, transparent 70%)", pointerEvents: "none" }} />
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.h2 variants={fadeUp} style={{ fontSize: "clamp(1.5rem, 4vw, 3rem)", fontWeight: 800, marginBottom: "16px" }}>
-            Stop letting your docs lie.
-          </motion.h2>
-          <motion.p variants={fadeUp} style={{ color: "#666", fontSize: "16px", marginBottom: "32px" }}>
-            Free. Open source. Works in 60 seconds.
-          </motion.p>
-          <motion.div variants={fadeUp} style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-            <div style={{ background: "#111", border: "1px solid #222", borderRadius: "8px", padding: "12px 20px", fontFamily: "var(--font-mono)", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ color: "#00ff88" }}>$</span>
-              <span>pip install docdrift</span>
-              <button type="button" onClick={() => navigator.clipboard.writeText("pip install docdrift")}
-                style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "12px" }}>copy</button>
+      {/* PRICING */}
+      <section style={{ position: "relative", zIndex: 1, padding: "0 24px 80px", maxWidth: "780px", margin: "0 auto" }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <p style={{ fontSize: "11px", letterSpacing: "0.15em", color: "#52525b", textTransform: "uppercase", fontFamily: "monospace", marginBottom: "12px" }}>pricing</p>
+          <h2 style={{ fontSize: "clamp(1.6rem, 3vw, 2.2rem)", fontWeight: 800, letterSpacing: "-0.02em", marginBottom: "40px" }}>simple pricing</h2>
+        </motion.div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+
+          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            style={{ background: "#09090b", border: "1px solid #27272a", borderRadius: "12px", padding: "28px" }}>
+            <div style={{ fontSize: "12px", color: "#52525b", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: "16px" }}>open source</div>
+            <div style={{ fontSize: "3rem", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: "4px" }}>free</div>
+            <div style={{ fontSize: "12px", color: "#52525b", marginBottom: "24px" }}>forever · self-hosted</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
+              {["pip install docdrift", "local AI — fully private", "pre-commit hook", "github actions", "cli tool"].map(f => (
+                <div key={f} style={{ display: "flex", gap: "8px", fontSize: "13px", color: "#a1a1aa", fontFamily: "monospace" }}>
+                  <Check size={13} style={{ color: "#4ade80", flexShrink: 0, marginTop: "1px" }} /> {f}
+                </div>
+              ))}
             </div>
             <a href="https://github.com/ayush698800/docwatcher" target="_blank"
-              style={{ display: "flex", alignItems: "center", gap: "8px", border: "1px solid #333", borderRadius: "8px", padding: "12px 20px", textDecoration: "none", color: "#fff", fontSize: "14px" }}>
-              <Github size={16} /> Star on GitHub
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", border: "1px solid #27272a", borderRadius: "7px", padding: "10px", textDecoration: "none", color: "#a1a1aa", fontSize: "13px" }}>
+              get started <ArrowRight size={12} />
             </a>
           </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+            style={{ background: "#09090b", border: "1px solid #4ade8040", borderRadius: "12px", padding: "28px", position: "relative" }}>
+            <div style={{ position: "absolute", top: "-11px", left: "20px", background: "#4ade80", color: "#09090b", fontSize: "10px", fontWeight: 800, padding: "3px 10px", borderRadius: "4px", letterSpacing: "0.1em", fontFamily: "monospace" }}>
+              COMING SOON
+            </div>
+            <div style={{ fontSize: "12px", color: "#4ade80", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "monospace", marginBottom: "16px" }}>hosted</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "4px" }}>
+              <span style={{ fontSize: "3rem", fontWeight: 900, letterSpacing: "-0.03em" }}>$7</span>
+              <span style={{ fontSize: "13px", color: "#52525b" }}>/month</span>
+            </div>
+            <div style={{ fontSize: "12px", color: "#52525b", marginBottom: "24px" }}>zero setup · always on</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
+              {["everything in free", "connect github in one click", "cloud AI included", "dashboard", "pr notifications", "email alerts"].map(f => (
+                <div key={f} style={{ display: "flex", gap: "8px", fontSize: "13px", color: "#a1a1aa", fontFamily: "monospace" }}>
+                  <Check size={13} style={{ color: "#4ade80", flexShrink: 0, marginTop: "1px" }} /> {f}
+                </div>
+              ))}
+            </div>
+            <WaitlistForm />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section style={{ position: "relative", zIndex: 1, padding: "60px 24px 80px", textAlign: "center", borderTop: "1px solid #18181b" }}>
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 100%, #4ade8008 0%, transparent 60%)", pointerEvents: "none" }} />
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <h2 style={{ fontSize: "clamp(1.8rem, 4vw, 3rem)", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: "12px" }}>
+            stop letting your docs lie.
+          </h2>
+          <p style={{ color: "#52525b", fontSize: "14px", marginBottom: "32px" }}>free · open source · works in 60 seconds</p>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#18181b", border: "1px solid #27272a", borderRadius: "8px", padding: "10px 16px", fontFamily: "monospace", fontSize: "13px" }}>
+              <span style={{ color: "#4ade80" }}>$</span>
+              <span>pip install docdrift</span>
+              <CopyButton text="pip install docdrift" />
+            </div>
+            <a href="https://github.com/ayush698800/docwatcher" target="_blank"
+              style={{ display: "flex", alignItems: "center", gap: "7px", border: "1px solid #27272a", borderRadius: "8px", padding: "10px 18px", textDecoration: "none", color: "#a1a1aa", fontSize: "13px", background: "#18181b" }}>
+              <Star size={13} /> star on github
+            </a>
+          </div>
         </motion.div>
       </section>
 
-      <footer style={{ borderTop: "1px solid #1a1a1a", padding: "2rem", textAlign: "center", color: "#444", fontSize: "13px" }}>
-        <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginBottom: "1rem", flexWrap: "wrap" }}>
-          <a href="https://github.com/ayush698800/docwatcher" target="_blank" style={{ color: "#555", textDecoration: "none" }}>GitHub</a>
-          <a href="https://pypi.org/project/docdrift/" target="_blank" style={{ color: "#555", textDecoration: "none" }}>PyPI</a>
-          <a href="https://github.com/marketplace/actions/docdrift" target="_blank" style={{ color: "#555", textDecoration: "none" }}>Marketplace</a>
-          <a href="https://github.com/ayush698800/docwatcher/blob/main/README.md" target="_blank" style={{ color: "#555", textDecoration: "none" }}>Docs</a>
+      {/* FOOTER */}
+      <footer style={{ position: "relative", zIndex: 1, borderTop: "1px solid #18181b", padding: "24px", textAlign: "center" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginBottom: "12px", flexWrap: "wrap" }}>
+          {[
+            { label: "github", href: "https://github.com/ayush698800/docwatcher" },
+            { label: "pypi", href: "https://pypi.org/project/docdrift/" },
+            { label: "marketplace", href: "https://github.com/marketplace/actions/docdrift" },
+            { label: "docs", href: "https://github.com/ayush698800/docwatcher/blob/main/README.md" },
+          ].map(l => (
+            <a key={l.label} href={l.href} target="_blank"
+              style={{ color: "#3f3f46", textDecoration: "none", fontSize: "12px", fontFamily: "monospace", letterSpacing: "0.05em" }}>
+              {l.label}
+            </a>
+          ))}
         </div>
-        <p>Built by ayush698800 · MIT License · DocDrift v2.0.0</p>
+        <p style={{ color: "#27272a", fontSize: "11px", fontFamily: "monospace", letterSpacing: "0.05em" }}>
+          built by ayush698800 · mit license · docdrift v2.0.0
+        </p>
       </footer>
 
     </main>
